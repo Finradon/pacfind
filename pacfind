@@ -215,19 +215,11 @@ def main() -> int:
         choices=["pacman", "paru", "flatpak"],
         help="Filter by manager and list installed entries for that manager",
     )
-    parser.add_argument(
-        "--color",
-        choices=["auto", "always", "never"],
-        default="auto",
-        help="Colorize output (default: auto)",
-    )
     args = parser.parse_args()
 
     name = args.name
     manager_filter = args.manager
-    color = use_color(
-        True if args.color == "always" else False if args.color == "never" else None
-    )
+    color = use_color(None)
 
     if name is None and manager_filter is None:
         parser.error("either NAME or --manager/-m must be provided")
