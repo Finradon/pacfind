@@ -204,7 +204,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Find how a package is installed (pacman/paru/flatpak)."
     )
-    parser.add_argument("name", help="Package name (pacman/paru) or Flatpak app ID")
+    parser.add_argument(
+        "name",
+        nargs="?",
+        help="Package name (pacman/paru) or Flatpak app ID",
+    )
+    parser.add_argument(
+        "-m",
+        "--manager",
+        choices=["pacman", "paru", "flatpak"],
+        help="Filter by manager and list installed entries for that manager",
+    )
     parser.add_argument(
         "--color",
         choices=["auto", "always", "never"],
@@ -214,11 +224,13 @@ def main() -> int:
     args = parser.parse_args()
 
     name = args.name
+    manager_filter = args.manager
     color = use_color(
         True if args.color == "always" else False if args.color == "never" else None
     )
 
-    query = name.lower()
+    if name is None and manager_filter is None:
+        parser.error("either NAME or --manager/-m must be provided")
 
     results: List[Result] = []
 
@@ -226,25 +238,36 @@ def main() -> int:
     if cmd_exists("pacman"):
         installed = list_pacman_installed()
         foreign = list_pacman_foreign()
-        matches = [pkg for pkg in installed if query in pkg.lower()]
+        matches = installed
+        if name is not None:
+            query = name.lower()
+            matches = [pkg for pkg in matches if query in pkg.lower()]
         repo_map = pacman_repo_map([p for p in matches if p not in foreign])
         for pkg in matches:
             results.append(result_for_pacman_pkg(pkg, foreign, repo_map))
 
     # Flatpak installed apps
     for fp in list_flatpak_installed():
-        if query in fp.name.lower():
+        if name is None or name.lower() in fp.name.lower():
             results.append(fp)
 
+    if manager_filter is not None:
+        results = [r for r in results if r.manager == manager_filter]
+
     if results:
-        exact = [r for r in results if r.name.lower() == query]
-        others = [r for r in results if r.name.lower() != query]
-        others.sort(key=lambda r: r.name.lower())
-        ordered = exact + others
+        if name is not None:
+            query = name.lower()
+            exact = [r for r in results if r.name.lower() == query]
+            others = [r for r in results if r.name.lower() != query]
+            others.sort(key=lambda r: r.name.lower())
+            ordered = exact + others
+        else:
+            ordered = sorted(results, key=lambda r: r.name.lower())
         print(format_table(ordered, color))
         return 0
 
-    print(format_table([Result(name=name, installed=False)], color))
+    not_found_name = name if name is not None else f"{manager_filter} packages"
+    print(format_table([Result(name=not_found_name, installed=False)], color))
     return 1
 
 
