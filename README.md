@@ -1,6 +1,6 @@
 # pacfind
 
-`pacfind` shows how packages are installed on your system (`pacman`, `paru`, or `flatpak`).
+`pacfind` shows how packages are installed on your system (`pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
 
 ## Usage
 
@@ -24,6 +24,9 @@ List all packages installed with one manager:
 ./pacfind --manager pacman
 ./pacfind -m paru
 ./pacfind -m flatpak
+./pacfind -m pip
+./pacfind -m npm
+./pacfind -m cargo
 ```
 
 List all packages from one source:

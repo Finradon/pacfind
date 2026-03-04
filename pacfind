@@ -1,218 +1,25 @@
 #!/usr/bin/env python3
 import argparse
-import json
-import os
-import shutil
-import subprocess
-import sys
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
+from typing import List
 
-
-def cmd_exists(name: str) -> bool:
-    return shutil.which(name) is not None
-
-
-def run(cmd: List[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env={**os.environ, "LC_ALL": "C", "LANG": "C"},
-    )
-
-
-@dataclass
-class Result:
-    name: str
-    installed: bool
-    manager: Optional[str] = None
-    source: Optional[str] = None
-    detail: Optional[str] = None
-
-
-# ---------------- Output ----------------
-
-
-def use_color(force: Optional[bool]) -> bool:
-    if force is not None:
-        return force
-    if os.environ.get("NO_COLOR") is not None:
-        return False
-    return sys.stdout.isatty()
-
-
-def c(text: str, code: str, enabled: bool) -> str:
-    if not enabled:
-        return text
-    return f"\x1b[{code}m{text}\x1b[0m"
-
-
-def pad_and_color(text: str, width: int, code: str, enabled: bool) -> str:
-    padded = f"{text:<{width}}"
-    return c(padded, code, enabled) if enabled else padded
-
-
-def format_row(res: Result, color: bool) -> str:
-    name = res.name
-    status = "installed" if res.installed else "not installed"
-    manager = res.manager or "-"
-    source = res.source or "-"
-
-    name_col = f"{name:<28}"
-    status_col = pad_and_color(status, 14, "32" if res.installed else "31", color)
-    manager_col = (
-        pad_and_color(manager, 10, "36", color) if res.installed else f"{manager:<10}"
-    )
-    source_col = c(source, "90", color) if res.installed else source
-
-    row = f"{name_col} {status_col} {manager_col} {source_col}"
-    return row
-
-
-def format_table(results: List[Result], color: bool) -> str:
-    header = f"{'NAME':<28} {'STATUS':<14} {'MANAGER':<10} {'SOURCE'}"
-    rows = [format_row(r, color) for r in results]
-    return f"{c(header, '1', color)}\n" + "\n".join(rows)
-
-
-# ---------------- Search helpers ----------------
-
-
-def list_pacman_installed() -> List[str]:
-    cp = run(["pacman", "-Qq"])
-    if cp.returncode != 0:
-        return []
-    return [line.strip() for line in cp.stdout.splitlines() if line.strip()]
-
-
-def list_pacman_foreign() -> Set[str]:
-    cmd = ["pacman", "-Qm"]
-    if cmd_exists("paru"):
-        cmd = ["paru", "-Qm"]
-    cp = run(cmd)
-    if cp.returncode != 0:
-        return set()
-    out = set()
-    for line in cp.stdout.splitlines():
-        if not line.strip():
-            continue
-        name = line.split()[0]
-        out.add(name)
-    return out
-
-
-def chunked(items: List[str], size: int) -> List[List[str]]:
-    return [items[i : i + size] for i in range(0, len(items), size)]
-
-
-def parse_pacman_qi_output(text: str) -> Dict[str, Optional[str]]:
-    results: Dict[str, Optional[str]] = {}
-    name: Optional[str] = None
-    repo: Optional[str] = None
-
-    def flush():
-        nonlocal name, repo
-        if name:
-            results[name] = repo
-        name = None
-        repo = None
-
-    for line in text.splitlines():
-        if not line.strip():
-            flush()
-            continue
-        if line.startswith("Name"):
-            _, val = line.split(":", 1)
-            name = val.strip()
-            continue
-        if line.startswith("Repository") or line.startswith("Installed From"):
-            _, val = line.split(":", 1)
-            repo = val.strip()
-            continue
-
-    flush()
-    return results
-
-
-def pacman_repo_map(pkgs: List[str], chunk_size: int = 200) -> Dict[str, Optional[str]]:
-    if not pkgs:
-        return {}
-    repo_map: Dict[str, Optional[str]] = {}
-    for chunk in chunked(pkgs, chunk_size):
-        cp = run(["pacman", "-Qi", *chunk])
-        if cp.returncode != 0:
-            continue
-        repo_map.update(parse_pacman_qi_output(cp.stdout))
-    return repo_map
-
-
-def list_flatpak_installed() -> List[Result]:
-    if not cmd_exists("flatpak"):
-        return []
-
-    cp = run(["flatpak", "list", "--columns=application,origin", "--format=json"])
-    if cp.returncode == 0:
-        try:
-            data = json.loads(cp.stdout)
-            out = []
-            for row in data:
-                app_id = row.get("application")
-                origin = row.get("origin")
-                if app_id:
-                    out.append(
-                        Result(
-                            name=app_id,
-                            installed=True,
-                            manager="flatpak",
-                            source=origin,
-                        )
-                    )
-            return out
-        except json.JSONDecodeError:
-            pass
-
-    cp = run(["flatpak", "list", "--columns=application,origin"])
-    if cp.returncode != 0:
-        return []
-
-    out = []
-    for line in cp.stdout.splitlines():
-        parts = [p for p in line.split("\t") if p]
-        if len(parts) >= 2:
-            app_id, origin = parts[0].strip(), parts[1].strip()
-            out.append(
-                Result(name=app_id, installed=True, manager="flatpak", source=origin)
-            )
-    return out
-
-
-def result_for_pacman_pkg(
-    name: str, foreign: Set[str], repo_map: Dict[str, Optional[str]]
-) -> Result:
-    if name in foreign:
-        if cmd_exists("paru"):
-            return Result(name=name, installed=True, manager="paru", source="aur")
-        return Result(name=name, installed=True, manager="pacman", source="local")
-
-    repo = repo_map.get(name)
-    return Result(name=name, installed=True, manager="pacman", source=repo)
+from pacfind_lib.backends import get_backends
+from pacfind_lib.models import Result
+from pacfind_lib.output import format_table, use_color
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Find how a package is installed (pacman/paru/flatpak)."
+        description="Find how a package is installed (pacman/paru/flatpak/pip/npm/cargo)."
     )
     parser.add_argument(
         "name",
         nargs="?",
-        help="Package name (pacman/paru) or Flatpak app ID",
+        help="Package/app name",
     )
     parser.add_argument(
         "-m",
         "--manager",
-        choices=["pacman", "paru", "flatpak"],
+        choices=["pacman", "paru", "flatpak", "pip", "npm", "cargo"],
         help="Filter by manager and list installed entries for that manager",
     )
     parser.add_argument(
@@ -231,23 +38,14 @@ def main() -> int:
         parser.error("either NAME, --manager/-m, or --source/-s must be provided")
 
     results: List[Result] = []
+    for backend in get_backends():
+        if not backend.is_available():
+            continue
+        results.extend(backend.list_installed())
 
-    # Pacman/Paru installed packages
-    if cmd_exists("pacman"):
-        installed = list_pacman_installed()
-        foreign = list_pacman_foreign()
-        matches = installed
-        if name is not None:
-            query = name.lower()
-            matches = [pkg for pkg in matches if query in pkg.lower()]
-        repo_map = pacman_repo_map([p for p in matches if p not in foreign])
-        for pkg in matches:
-            results.append(result_for_pacman_pkg(pkg, foreign, repo_map))
-
-    # Flatpak installed apps
-    for fp in list_flatpak_installed():
-        if name is None or name.lower() in fp.name.lower():
-            results.append(fp)
+    if name is not None:
+        query = name.lower()
+        results = [r for r in results if query in r.name.lower()]
 
     if manager_filter is not None:
         results = [r for r in results if r.manager == manager_filter]
