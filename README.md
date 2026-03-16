@@ -1,6 +1,6 @@
 # pacfind
 
-`pacfind` shows how packages are installed on your system (`brew`, `pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
+`pacfind` shows how packages are installed on your system (`macos`, `brew`, `pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
 
 The codebase is structured so additional OS-specific backends can be added without changing the CLI entrypoint.
 
@@ -24,6 +24,7 @@ List all packages installed with one manager:
 
 ```bash
 ./pacfind --manager pacman
+./pacfind -m macos
 ./pacfind -m brew
 ./pacfind -m paru
 ./pacfind -m flatpak
@@ -36,6 +37,7 @@ List all packages from one source:
 
 ```bash
 ./pacfind --source flathub
+./pacfind -s applications
 ./pacfind -s extra
 ./pacfind -s cask
 ```
@@ -44,6 +46,7 @@ Combine filters:
 
 ```bash
 ./pacfind --manager flatpak --source flathub
+./pacfind --manager macos --source applications
 ./pacfind --manager brew --source formula
 ./pacfind firefox --manager pacman
 ```
