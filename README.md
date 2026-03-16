@@ -55,5 +55,3 @@ Run the hermetic test suite with:
 ```bash
 pytest
 ```
-
-The tests stub command execution and do not depend on the package managers installed on the machine running them.
