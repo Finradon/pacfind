@@ -1,2 +1,4 @@
 install.sh
 __pycache__/
+.pytest_cache/
+.pytest_cache/
