@@ -2,6 +2,8 @@
 
 `pacfind` shows how packages are installed on your system (`pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
 
+The codebase is structured so additional OS-specific backends can be added without changing the CLI entrypoint.
+
 ## Usage
 
 ```bash
@@ -42,3 +44,13 @@ Combine filters:
 ./pacfind --manager flatpak --source flathub
 ./pacfind firefox --manager pacman
 ```
+
+## Tests
+
+Run the hermetic test suite with:
+
+```bash
+pytest
+```
+
+The tests stub command execution and do not depend on the package managers installed on the machine running them.
