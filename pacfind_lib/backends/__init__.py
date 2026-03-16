@@ -1,5 +1,6 @@
 from typing import List, Protocol, Sequence
 
+from pacfind_lib.backends.brew import BrewBackend
 from pacfind_lib.backends.cargo import CargoBackend
 from pacfind_lib.backends.flatpak import FlatpakBackend
 from pacfind_lib.backends.npm import NpmBackend
@@ -18,6 +19,7 @@ class Backend(Protocol):
 
 def get_backends() -> List[Backend]:
     return [
+        BrewBackend(),
         PacmanBackend(),
         ParuBackend(),
         FlatpakBackend(),

@@ -1,6 +1,6 @@
 # pacfind
 
-`pacfind` shows how packages are installed on your system (`pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
+`pacfind` shows how packages are installed on your system (`brew`, `pacman`, `paru`, `flatpak`, `pip`, `npm`, or `cargo`).
 
 The codebase is structured so additional OS-specific backends can be added without changing the CLI entrypoint.
 
@@ -24,6 +24,7 @@ List all packages installed with one manager:
 
 ```bash
 ./pacfind --manager pacman
+./pacfind -m brew
 ./pacfind -m paru
 ./pacfind -m flatpak
 ./pacfind -m pip
@@ -36,12 +37,14 @@ List all packages from one source:
 ```bash
 ./pacfind --source flathub
 ./pacfind -s extra
+./pacfind -s cask
 ```
 
 Combine filters:
 
 ```bash
 ./pacfind --manager flatpak --source flathub
+./pacfind --manager brew --source formula
 ./pacfind firefox --manager pacman
 ```
 
@@ -54,3 +57,17 @@ pytest
 ```
 
 The tests stub command execution and do not depend on the package managers installed on the machine running them.
+
+## Install
+
+Symlink `pacfind` into `~/.local/bin`:
+
+```bash
+./install.sh
+```
+
+Or choose a different target directory:
+
+```bash
+./install.sh ~/bin
+```
