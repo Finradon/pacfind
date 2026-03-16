@@ -57,17 +57,3 @@ pytest
 ```
 
 The tests stub command execution and do not depend on the package managers installed on the machine running them.
-
-## Install
-
-Symlink `pacfind` into `~/.local/bin`:
-
-```bash
-./install.sh
-```
-
-Or choose a different target directory:
-
-```bash
-./install.sh ~/bin
-```
